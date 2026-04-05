@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIPHER PROTOCOL // HIPAA DETECTIVE TRAINING</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       DESIGN TOKENS — AMBER/YELLOW ON BLACK TERMINAL SYSTEM
+    ============================================================ */
+    :root {
+      --bg:          #0a0a0a;
+      --bg-panel:    #000000;
+      --primary:     #ffd700;
+      --secondary:   #ffb000;
+      --dim:         #a07800;
+      --muted:       #3d3000;
+      --border:      #2e2200;
+      --border-hi:   #ffb000;
+      --error:       #ff3333;
+      --ok:          #ffd700;
+      --glow:        0 0 8px rgba(255,215,0,0.65), 0 0 24px rgba(255,215,0,0.18);
+      --glow-sm:     0 0 5px rgba(255,215,0,0.45);
+      --glow-err:    0 0 6px rgba(255,51,51,0.5);
+    }
+
+    /* ============================================================
+       RESET & BASE
+    ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--primary);
+      font-family: 'JetBrains Mono', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* ============================================================
+       CRT SCANLINES + VIGNETTE
+    ============================================================ */
+    .crt-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.07) 3px,
+        rgba(0,0,0,0.07) 4px
+      );
+    }
+    .crt-vignette {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 9998;
+      background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.7) 100%);
+    }
+
+    /* ============================================================
+       TYPOGRAPHY
+    ============================================================ */
+    h1, h2, h3 {
+      font-family: 'VT323', monospace;
+      letter-spacing: 0.06em;
+      text-shadow: var(--glow);
+      line-height: 1.1;
+    }
+    h1 { font-size: clamp(2.4rem, 7vw, 5rem); }
+    h2 { font-size: clamp(1.6rem, 3.5vw, 2.8rem); }
+    h3 { font-size: clamp(1rem, 2vw, 1.5rem); }
+
+    p, li, span, label { text-shadow: var(--glow-sm); }
+
+    a {
+      color: var(--primary);
+      text-decoration: none;
+      border-bottom: 1px dashed var(--border-hi);
+      transition: all 0.12s;
+    }
+    a:hover {
+      color: var(--bg);
+      background: var(--primary);
+      border-bottom-color: transparent;
+      padding: 1px 3px;
+      text-shadow: none;
+    }
+
+    /* ============================================================
+       ANIMATIONS
+    ============================================================ */
+    @keyframes blink      { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes blink-slow { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    @keyframes glitch-h   {
+      0%{transform:translate(0)}
+      20%{transform:translate(-2px,1px);filter:hue-rotate(15deg)}
+      40%{transform:translate(2px,-1px)}
+      60%{transform:translate(-1px,2px);filter:hue-rotate(-10deg)}
+      80%{transform:translate(1px,-2px)}
+      100%{transform:translate(0)}
+    }
+    @keyframes pulse-border {
+      0%,100% { border-color: var(--border-hi); }
+      50%      { border-color: var(--primary); box-shadow: 0 0 12px rgba(255,215,0,0.3); }
+    }
+    @keyframes reveal-up {
+      from { opacity:0; transform:translateY(22px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    @keyframes slide-in-left {
+      from { opacity:0; transform:translateX(-24px); }
+      to   { opacity:1; transform:translateX(0); }
+    }
+
+    .cursor {
+      display: inline-block;
+      width: 11px; height: 1.05em;
+      background: var(--primary);
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+      box-shadow: var(--glow-sm);
+    }
+
+    .dot-pulse {
+      display: inline-block;
+      width: 7px; height: 7px;
+      background: var(--primary);
+      border-radius: 50%;
+      animation: blink-slow 2s ease-in-out infinite;
+      box-shadow: var(--glow-sm);
+      flex-shrink: 0;
+    }
+
+    .glitch:hover { animation: glitch-h 0.28s ease infinite; }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.55s ease, transform 0.55s ease;
+    }
+    .reveal.visible { opacity:1; transform:translateY(0); }
+
+    /* ============================================================
+       NAVIGATION
+    ============================================================ */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: rgba(10,10,10,0.96);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(6px);
+    }
+
+    .nav-logo {
+      font-family: 'VT323', monospace;
+      font-size: 1.55rem;
+      color: var(--primary);
+      text-shadow: var(--glow);
+      letter-spacing: 0.08em;
+      border: none;
+    }
+    .nav-logo .bracket { color: var(--secondary); }
+    .nav-logo:hover { background: transparent; color: var(--primary); padding: 0; }
+
+    .nav-center {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+    .nav-center a {
+      font-size: 0.72rem;
+      color: var(--dim);
+      border: none;
+      text-shadow: none;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      transition: color 0.15s, text-shadow 0.15s;
+    }
+    .nav-center a:hover {
+      color: var(--primary);
+      background: transparent;
+      text-shadow: var(--glow-sm);
+      padding: 0;
+      border: none;
+    }
+
+    .nav-right { display: flex; align-items: center; gap: 1rem; }
+
+    /* Language Toggle */
+    .lang-toggle {
+      display: flex;
+      border: 1px solid var(--border-hi);
+    }
+    .lang-btn {
+      background: transparent;
+      border: none;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 5px 12px;
+      cursor: pointer;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      transition: all 0.12s;
+    }
+    .lang-btn.active {
+      background: var(--primary);
+      color: var(--bg);
+      text-shadow: none;
+    }
+    .lang-btn:not(.active):hover { color: var(--primary); }
+    .lang-sep {
+      width: 1px;
+      background: var(--border-hi);
+      align-self: stretch;
+    }
+
+    /* ============================================================
+       HERO
+    ============================================================ */
+    #hero {
+      min-height: 100vh;
+      padding-top: 58px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero-top-bar {
+      padding: 0.6rem 2rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.68rem;
+      color: var(--dim);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.2rem;
+      letter-spacing: 0.06em;
+    }
+    .hero-top-bar .ok  { color: var(--ok); text-shadow: var(--glow-sm); }
+    .hero-top-bar .err { color: var(--error); text-shadow: var(--glow-err); }
+    .hero-top-bar .sep { color: var(--border-hi); }
+
+    .hero-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .hero-left {
+      padding: 3rem 2rem 2rem;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .ascii-art {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: clamp(0.28rem, 0.9vw, 0.52rem);
+      color: var(--muted);
+      line-height: 1.15;
+      white-space: pre;
+      margin-bottom: 1.8rem;
+      opacity: 0.55;
+    }
+
+    .hero-prompt {
+      font-size: 0.8rem;
+      color: var(--dim);
+      margin-bottom: 0.6rem;
+    }
+    .hero-prompt .u { color: var(--secondary); text-shadow: var(--glow-sm); }
+    .hero-prompt .h { color: var(--primary);   text-shadow: var(--glow-sm); }
+    .hero-prompt .cmd { color: var(--primary); text-shadow: var(--glow-sm); }
+
+    .hero-title {
+      margin-bottom: 1.2rem;
+      min-height: 6rem;
+    }
+
+    .hero-subtitle {
+      font-size: 0.82rem;
+      color: var(--dim);
+      max-width: 520px;
+      margin-bottom: 2rem;
+      border-left: 2px solid var(--secondary);
+      padding-left: 1rem;
+      line-height: 1.75;
+    }
+
+    .hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+
+    .btn {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 10px 22px;
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      text-shadow: var(--glow-sm);
+      transition: all 0.13s;
+    }
+    .btn:hover {
+      background: var(--primary);
+      color: var(--bg);
+      text-shadow: none;
+      box-shadow: 0 0 20px rgba(255,215,0,0.4);
+    }
+    .btn:active { transform: translateY(1px); }
+
+    .btn-outline {
+      border-color: var(--secondary);
+      color: var(--secondary);
+    }
+    .btn-outline:hover { background: var(--secondary); color: var(--bg); }
+
+    /* ============================================================
+       VIDEO PANE
+    ============================================================ */
+    .hero-right {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+    }
+
+    .terminal-window {
+      border: 1px solid var(--border-hi);
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .terminal-titlebar {
+      background: var(--primary);
+      color: var(--bg);
+      padding: 7px 14px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'JetBrains Mono', monospace;
+      flex-shrink: 0;
+    }
+    .t-dots { display:flex; gap:5px; }
+    .t-dots span {
+      width: 9px; height: 9px;
+      background: var(--bg);
+      display: inline-block;
+    }
+
+    .video-wrapper {
+      position: relative;
+      flex: 1;
+      min-height: 320px;
+    }
+    .video-wrapper video,
+    .video-wrapper iframe {
+      position: absolute;
+      top:0; left:0;
+      width:100%; height:100%;
+      border: none;
+      display: block;
+    }
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+      gap: 1rem;
+    }
+    .video-placeholder .play-icon {
+      font-family: 'VT323', monospace;
+      font-size: 5rem;
+      color: var(--muted);
+      text-shadow: none;
+      line-height: 1;
+    }
+    .video-placeholder .ph-label {
+      font-size: 0.72rem;
+      color: var(--dim);
+      text-align: center;
+      text-shadow: none;
+    }
+    .video-placeholder .ph-path {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed var(--border);
+      padding: 6px 14px;
+    }
+
+    /* ============================================================
+       SECTION SCAFFOLD
+    ============================================================ */
+    section {
+      padding: 4.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sec-head { margin-bottom: 2.5rem; }
+    .sec-prompt {
+      font-size: 0.72rem;
+      color: var(--dim);
+      margin-bottom: 0.3rem;
+    }
+    .sec-divider {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+      margin-top: 0.75rem;
+      overflow: hidden;
+    }
+
+    /* ============================================================
+       MISSION PANES
+    ============================================================ */
+    .mission-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    .pane {
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      transition: border-color 0.2s;
+    }
+    .pane:hover { border-color: var(--secondary); }
+
+    .pane-head {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 14px;
+      font-size: 0.72rem;
+      color: var(--secondary);
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-weight: 700;
+    }
+
+    .pane-body {
+      padding: 1.1rem 1.3rem;
+      font-size: 0.81rem;
+      color: var(--dim);
+      line-height: 1.8;
+    }
+    .pane-body .hi { color: var(--primary); }
+
+    /* ============================================================
+       PROGRESS / STATS
+    ============================================================ */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.2rem;
+    }
+
+    .stat-pane {
+      border: 1px solid var(--border);
+      padding: 1.2rem;
+      background: var(--bg-panel);
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--dim);
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+    .stat-val {
+      font-family: 'VT323', monospace;
+      font-size: 2.8rem;
+      color: var(--primary);
+      text-shadow: var(--glow);
+      line-height: 1;
+      margin-bottom: 0.6rem;
+    }
+    .stat-val.danger { color: var(--error); text-shadow: var(--glow-err); }
+
+    .prog {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0;
+    }
+    .prog .fill   { color: var(--primary); text-shadow: var(--glow-sm); }
+    .prog .fill-e { color: var(--error);   text-shadow: var(--glow-err); }
+    .prog .empty  { color: var(--muted); }
+
+    /* ============================================================
+       HOW TO PLAY — STEPS
+    ============================================================ */
+    .steps { list-style: none; }
+
+    .step {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      gap: 1.2rem;
+      padding: 1.4rem 0;
+      border-bottom: 1px dashed var(--border);
+      align-items: start;
+      transition: background 0.15s;
+    }
+    .step:last-child { border-bottom: none; }
+    .step:hover { background: rgba(255,215,0,0.02); }
+
+    .step-num {
+      font-family: 'VT323', monospace;
+      font-size: 2.2rem;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      text-align: center;
+      line-height: 1.15;
+      padding: 4px 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .step:hover .step-num { color: var(--primary); border-color: var(--secondary); }
+
+    .step-info h3  { margin-bottom: 0.35rem; font-size: 1.1rem; }
+    .step-info p   { font-size: 0.8rem; color: var(--dim); }
+
+    /* ============================================================
+       HIPAA RULES — ACCORDION
+    ============================================================ */
+    #rules { background: var(--bg-panel); }
+
+    .rules-wrap { max-width: 960px; }
+
+    .rule-card {
+      border: 1px solid var(--border);
+      margin-bottom: 0.8rem;
+      transition: border-color 0.18s;
+    }
+    .rule-card:hover { border-color: var(--secondary); }
+    .rule-card.open  { border-color: var(--primary); box-shadow: 0 0 12px rgba(255,215,0,0.08); }
+
+    .rule-trigger {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 14px 16px;
+      text-align: left;
+      font-family: 'JetBrains Mono', monospace;
+      transition: background 0.12s;
+    }
+    .rule-trigger:hover { background: rgba(255,215,0,0.03); }
+
+    .rule-id {
+      font-family: 'VT323', monospace;
+      font-size: 1.35rem;
+      color: var(--secondary);
+      min-width: 90px;
+      text-shadow: none;
+      flex-shrink: 0;
+    }
+    .rule-name {
+      font-size: 0.8rem;
+      color: var(--primary);
+      letter-spacing: 0.04em;
+      flex: 1;
+      text-align: left;
+      text-shadow: var(--glow-sm);
+    }
+    .rule-chevron {
+      font-size: 0.82rem;
+      color: var(--dim);
+      flex-shrink: 0;
+      transition: transform 0.25s;
+    }
+    .rule-card.open .rule-chevron { transform: rotate(180deg); }
+
+    .rule-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease;
+      border-top: none;
+    }
+    .rule-card.open .rule-body {
+      max-height: 600px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .rule-inner {
+      padding: 1rem 1.3rem 1.3rem;
+    }
+    .rule-inner p {
+      font-size: 0.79rem;
+      color: var(--dim);
+      margin-bottom: 0.75rem;
+      line-height: 1.8;
+    }
+    .rule-inner ul { list-style: none; }
+    .rule-inner li {
+      font-size: 0.77rem;
+      color: var(--dim);
+      margin-bottom: 0.4rem;
+      padding-left: 1.2rem;
+      position: relative;
+    }
+    .rule-inner li::before {
+      content: '>';
+      position: absolute;
+      left: 0;
+      color: var(--primary);
+    }
+
+    /* ============================================================
+       HIPAA OFFICIAL LINK BLOCK
+    ============================================================ */
+    .hipaa-link-block {
+      margin-top: 2.5rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .hipaa-ext-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 12px 20px;
+      border: 1px solid var(--primary) !important;
+      color: var(--primary) !important;
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-shadow: var(--glow-sm) !important;
+      text-transform: uppercase;
+      transition: all 0.13s;
+      animation: pulse-border 3s ease-in-out infinite;
+    }
+    .hipaa-ext-link:hover {
+      background: var(--primary) !important;
+      color: var(--bg) !important;
+      text-shadow: none !important;
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 28px rgba(255,215,0,0.4);
+      padding: 12px 20px;
+    }
+    .hipaa-ext-link .arrow { font-size: 1.1rem; }
+
+    .hipaa-sub-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.2rem;
+    }
+    .hipaa-sub-links a {
+      font-size: 0.72rem;
+      color: var(--dim);
+      border-bottom-color: var(--border);
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      text-shadow: none;
+    }
+    .hipaa-sub-links a:hover {
+      color: var(--primary);
+      background: transparent;
+      border-color: var(--secondary);
+      padding: 4px 10px;
+    }
+
+    .hipaa-legal-note {
+      margin-top: 0.9rem;
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-shadow: none;
+    }
+
+    /* ============================================================
+       FOOTER
+    ============================================================ */
+    footer {
+      padding: 3rem 2rem 2rem;
+      background: #000;
+      border-top: 2px solid var(--border-hi);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .footer-brand {
+      font-family: 'VT323', monospace;
+      font-size: 1.9rem;
+      color: var(--primary);
+      text-shadow: var(--glow);
+      margin-bottom: 0.75rem;
+    }
+
+    .footer-col h4 {
+      font-size: 0.7rem;
+      color: var(--secondary);
+      letter-spacing: 0.12em;
+      margin-bottom: 0.9rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      text-shadow: none;
+    }
+    .footer-col ul { list-style: none; }
+    .footer-col li { margin-bottom: 0.45rem; }
+    .footer-col a {
+      font-size: 0.73rem;
+      color: var(--dim);
+      border-bottom-color: transparent;
+      text-shadow: none;
+    }
+    .footer-col a:hover {
+      color: var(--primary);
+      background: transparent;
+      text-shadow: var(--glow-sm);
+      padding: 0;
+      border-color: transparent;
+    }
+    .footer-col p {
+      font-size: 0.73rem;
+      color: var(--dim);
+      text-shadow: none;
+      line-height: 1.7;
+    }
+
+    .footer-bottom {
+      border-top: 1px solid var(--border);
+      padding-top: 1.4rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .footer-bottom p {
+      font-size: 0.68rem;
+      color: var(--muted);
+      text-shadow: none;
+    }
+    .sys-status {
+      font-size: 0.68rem;
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ============================================================
+       RESPONSIVE
+    ============================================================ */
+    @media (max-width: 900px) {
+      .hero-body { grid-template-columns: 1fr; }
+      .hero-right { min-height: 320px; border-top: 1px solid var(--border); }
+      .hero-left { border-right: none; }
+      .ascii-art { display: none; }
+      .nav-center { display: none; }
+    }
+    @media (max-width: 560px) {
+      nav { padding: 0 1rem; }
+      section { padding: 3rem 1rem; }
+      .hero-left { padding: 2rem 1rem; }
+      .step { grid-template-columns: 50px 1fr; }
+      .step-num { font-size: 1.6rem; }
+      .hipaa-ext-link { font-size: 0.72rem; padding: 10px 14px; }
+      .hipaa-ext-link:hover { padding: 10px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="crt-overlay" aria-hidden="true"></div>
+  <div class="crt-vignette" aria-hidden="true"></div>
+
+  <!-- ════════════════════════════════════════
+       NAVIGATION
+  ════════════════════════════════════════ -->
+  <nav role="navigation" aria-label="Main navigation">
+    <a href="#" class="nav-logo glitch" aria-label="Cipher Protocol Home">
+      <span class="bracket">[</span>CIPHER<span class="bracket">_</span>PROTOCOL<span class="bracket">]</span>
+    </a>
+
+    <ul class="nav-center" role="list">
+      <li><a href="#mission"     data-i18n="nav_mission">./mission</a></li>
+      <li><a href="#how-to-play" data-i18n="nav_play">./play</a></li>
+      <li><a href="#rules"       data-i18n="nav_rules">./rules</a></li>
+    </ul>
+
+    <div class="nav-right">
+      <div class="lang-toggle" role="group" aria-label="Language selection">
+        <button class="lang-btn active" onclick="setLang('en')" aria-pressed="true"  aria-label="Switch to English">EN</button>
+        <div class="lang-sep" aria-hidden="true"></div>
+        <button class="lang-btn"        onclick="setLang('nl')" aria-pressed="false" aria-label="Schakel naar Nederlands">NL</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ════════════════════════════════════════
+       HERO
+  ════════════════════════════════════════ -->
+  <section id="hero" aria-label="Hero">
+
+    <div class="hero-top-bar" role="status" aria-live="polite">
+      <span><span class="ok">[OK]</span> SYSTEM_ONLINE</span>
+      <span class="sep">|</span>
+      <span><span class="ok">[OK]</span> AES-256_ENCRYPTION</span>
+      <span class="sep">|</span>
+      <span><span class="err">[ALERT]</span> <span data-i18n="status_alert">BREACHES_DETECTED: 3 OPEN CASES</span></span>
+      <span class="sep">|</span>
+      <span><span class="ok">[OK]</span> HIPAA_COMPLIANCE: 78%</span>
+    </div>
+
+    <div class="hero-body">
+      <!-- LEFT: COPY -->
+      <div class="hero-left">
+        <pre class="ascii-art" aria-hidden="true">
+ ██████╗██╗██████╗ ██╗  ██╗███████╗██████╗
+██╔════╝██║██╔══██╗██║  ██║██╔════╝██╔══██╗
+██║     ██║██████╔╝███████║█████╗  ██████╔╝
+██║     ██║██╔═══╝ ██╔══██║██╔══╝  ██╔══██╗
+╚██████╗██║██║     ██║  ██║███████╗██║  ██║
+ ╚═════╝╚═╝╚═╝     ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
+        </pre>
+
+        <div class="hero-prompt" aria-hidden="true">
+          <span class="u">agent@cipher-sys</span>:<span class="h">~/hipaa-protocol</span>$&nbsp;<span class="cmd">./run --mode=detective --clearance=level5</span>
+        </div>
+
+        <h1 class="hero-title" aria-live="polite">
+          <span id="typewriter-text"></span><span class="cursor" aria-hidden="true"></span>
+        </h1>
+
+        <p class="hero-subtitle" id="hero-sub">
+          // A gamified compliance training experience designed to protect patient data and enforce HIPAA standards across all departments.
+        </p>
+
+        <div class="hero-cta">
+          <button class="btn"         data-i18n="cta_start">[ START MISSION ]</button>
+          <button class="btn btn-outline" onclick="document.getElementById('rules').scrollIntoView({behavior:'smooth'})" data-i18n="cta_rules">[ VIEW RULES --help ]</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: VIDEO -->
+      <div class="hero-right">
+        <div class="terminal-window" style="height:100%;">
+          <div class="terminal-titlebar">
+            <span data-i18n="video_title">+--- MISSION_BRIEFING.mp4 :: CLASSIFIED ---+</span>
+            <div class="t-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+
+          <div class="video-wrapper">
+            <!--
+              ╔══════════════════════════════════════════════════╗
+              ║  REPLACE THE src BELOW WITH YOUR VIDEO URL       ║
+              ║  Self-hosted: src="your-video.mp4"               ║
+              ║  YouTube:     use <iframe> with embed URL        ║
+              ╚══════════════════════════════════════════════════╝
+            -->
+            <video id="hero-video" controls style="background:#000;object-fit:contain;" aria-label="Mission briefing video">
+              <source src="YOUR_VIDEO_URL_HERE.mp4" type="video/mp4">
+            </video>
+
+            <!-- Placeholder — shown until real video src is added -->
+            <div class="video-placeholder" id="vid-placeholder" aria-hidden="true">
+              <div class="play-icon">▶</div>
+              <div class="ph-label" data-i18n="video_ph_label">MISSION BRIEFING VIDEO</div>
+              <div class="ph-path">src="YOUR_VIDEO_URL_HERE.mp4"</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════
+       MISSION BRIEFING
+  ════════════════════════════════════════ -->
+  <section id="mission" aria-label="Mission briefing">
+    <div class="sec-head reveal">
+      <p class="sec-prompt">$ cat mission_briefing.txt</p>
+      <h2 data-i18n="mission_title">MISSION BRIEFING</h2>
+      <p class="sec-divider">================================================</p>
+    </div>
+
+    <div class="mission-grid">
+      <div class="pane reveal">
+        <div class="pane-head"><span class="dot-pulse"></span><span data-i18n="pane1_title">// OBJECTIVE</span></div>
+        <div class="pane-body">
+          <p data-i18n="pane1_body">You are a <span class="hi">HIPAA Compliance Detective</span>. Patient data is under threat. Identify vulnerabilities, close breaches, and ensure every team member follows protocol. Your decisions determine whether patient privacy is protected — or compromised.</p>
+        </div>
+      </div>
+      <div class="pane reveal">
+        <div class="pane-head"><span class="dot-pulse"></span><span data-i18n="pane2_title">// WHY IT MATTERS</span></div>
+        <div class="pane-body">
+          <p data-i18n="pane2_body">HIPAA violations can result in fines up to <span class="hi">$1.9M per violation category per year</span>. Beyond financial penalties, breaches destroy patient trust. Every agent on this team carries responsibility for compliance.</p>
+        </div>
+      </div>
+      <div class="pane reveal">
+        <div class="pane-head"><span class="dot-pulse"></span><span data-i18n="pane3_title">// YOUR ROLE</span></div>
+        <div class="pane-body">
+          <p data-i18n="pane3_body">Each module simulates a <span class="hi">real-world scenario</span>: a suspicious email, an unsecured device, a mishandled file. Solve cases to earn clearance points and unlock the next classified tier.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="sec-divider reveal">---- SYSTEM METRICS ------------------------------------------------------------------</p>
+
+    <div class="stats-grid reveal">
+      <div class="stat-pane">
+        <div class="stat-label">// COMPLIANCE_RATE</div>
+        <div class="stat-val">78%</div>
+        <div class="prog">[<span class="fill">||||||||||||||||</span><span class="empty">····</span>] 78/100</div>
+      </div>
+      <div class="stat-pane">
+        <div class="stat-label">// CASES_SOLVED</div>
+        <div class="stat-val">142</div>
+        <div class="prog">[<span class="fill">||||||||||||||||||</span><span class="empty">··</span>] 142/150</div>
+      </div>
+      <div class="stat-pane">
+        <div class="stat-label">// AGENTS_TRAINED</div>
+        <div class="stat-val">89%</div>
+        <div class="prog">[<span class="fill">|||||||||||||||||</span><span class="empty">···</span>] 89/100</div>
+      </div>
+      <div class="stat-pane">
+        <div class="stat-label">// OPEN_BREACHES</div>
+        <div class="stat-val danger">03</div>
+        <div class="prog">[<span class="fill-e">|||</span><span class="empty">·················</span>] CRITICAL</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════
+       HOW TO PLAY
+  ════════════════════════════════════════ -->
+  <section id="how-to-play" aria-label="How to play">
+    <div class="sec-head reveal">
+      <p class="sec-prompt">$ ./run --mode=tutorial --agent=new</p>
+      <h2 data-i18n="howto_title">HOW TO PLAY</h2>
+      <p class="sec-divider">================================================</p>
+    </div>
+
+    <ul class="steps" role="list">
+      <li class="step reveal">
+        <div class="step-num" aria-hidden="true">01</div>
+        <div class="step-info">
+          <h3 data-i18n="step1_title">ACCESS YOUR TERMINAL</h3>
+          <p  data-i18n="step1_body">Log in with your employee credentials. Your clearance level determines which cases are available. New agents begin at Level 1 — Basic Protocol.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <div class="step-num" aria-hidden="true">02</div>
+        <div class="step-info">
+          <h3 data-i18n="step2_title">INVESTIGATE THE CASE</h3>
+          <p  data-i18n="step2_body">Each case presents a scenario involving PHI (Protected Health Information). Review the evidence, analyse the logs, and identify the HIPAA violation and its severity level.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <div class="step-num" aria-hidden="true">03</div>
+        <div class="step-info">
+          <h3 data-i18n="step3_title">MAKE YOUR CALL</h3>
+          <p  data-i18n="step3_body">Select the correct remediation action. Wrong decisions cost clearance points. Correct decisions earn XP and advance your rank toward Level 5: Chief Compliance Officer.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <div class="step-num" aria-hidden="true">04</div>
+        <div class="step-info">
+          <h3 data-i18n="step4_title">CLOSE THE BREACH</h3>
+          <p  data-i18n="step4_body">Submit your findings. The system validates your decision against the official HIPAA framework. A full debrief follows every case — win or lose.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <div class="step-num" aria-hidden="true">05</div>
+        <div class="step-info">
+          <h3 data-i18n="step5_title">CLIMB THE RANKS</h3>
+          <p  data-i18n="step5_body">Top-performing agents appear on the department leaderboard. Monthly winners receive official recognition. Compliance is not optional — and neither is excellence.</p>
+        </div>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ════════════════════════════════════════
+       HIPAA RULES
+  ════════════════════════════════════════ -->
+  <section id="rules" aria-label="HIPAA compliance rules">
+    <div class="sec-head reveal">
+      <p class="sec-prompt">$ cat /etc/hipaa/rules.conf --verbose</p>
+      <h2 data-i18n="rules_title">HIPAA COMPLIANCE RULES</h2>
+      <p class="sec-divider">================================================</p>
+      <p style="font-size:0.8rem;color:var(--dim);margin-top:0.6rem;" data-i18n="rules_sub">// All personnel are legally bound by the following regulations. Select each rule to expand.</p>
+    </div>
+
+    <div class="rules-wrap">
+
+      <!-- RULE 1 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§164.502</span>
+          <span class="rule-name" data-i18n="rule1_title">PRIVACY RULE — USES AND DISCLOSURES OF PHI</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule1_body">Covered entities may only use or disclose Protected Health Information (PHI) as permitted or required by the Privacy Rule. PHI includes any individually identifiable health information held or transmitted in any form.</p>
+            <ul>
+              <li data-i18n="rule1_li1">PHI must not be disclosed without written patient authorisation except in specific permitted cases.</li>
+              <li data-i18n="rule1_li2">Minimum Necessary Standard applies: disclose only what is required for the stated purpose.</li>
+              <li data-i18n="rule1_li3">Patients have the right to access, correct, and restrict use of their own health information.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RULE 2 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§164.312</span>
+          <span class="rule-name" data-i18n="rule2_title">SECURITY RULE — TECHNICAL SAFEGUARDS FOR ePHI</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule2_body">All electronic Protected Health Information (ePHI) must be secured with technical safeguards to control access, prevent unauthorised access, and ensure data integrity.</p>
+            <ul>
+              <li data-i18n="rule2_li1">Implement role-based access controls. Only authorised personnel may access ePHI.</li>
+              <li data-i18n="rule2_li2">All ePHI must be encrypted at rest and in transit using industry-standard protocols.</li>
+              <li data-i18n="rule2_li3">Automatic logoff must be enabled on all systems that handle ePHI.</li>
+              <li data-i18n="rule2_li4">Audit logs must record all access to and modifications of ePHI systems.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RULE 3 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§164.400</span>
+          <span class="rule-name" data-i18n="rule3_title">BREACH NOTIFICATION RULE — MANDATORY REPORTING</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule3_body">In the event of a breach of unsecured PHI, covered entities must notify affected individuals, the Secretary of HHS, and in some cases, the media.</p>
+            <ul>
+              <li data-i18n="rule3_li1">Affected individuals must be notified without unreasonable delay and within 60 calendar days of discovery.</li>
+              <li data-i18n="rule3_li2">HHS must be notified. Breaches affecting 500+ individuals require immediate notification.</li>
+              <li data-i18n="rule3_li3">Notifications must state: the nature of the breach, data types involved, and steps individuals should take.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RULE 4 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§164.530</span>
+          <span class="rule-name" data-i18n="rule4_title">ADMINISTRATIVE SAFEGUARDS — WORKFORCE TRAINING</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule4_body">Covered entities must implement administrative policies and procedures to prevent, detect, contain, and correct security violations.</p>
+            <ul>
+              <li data-i18n="rule4_li1">All workforce members must receive HIPAA training upon hire and periodically thereafter.</li>
+              <li data-i18n="rule4_li2">A designated Privacy Officer and Security Officer must be assigned.</li>
+              <li data-i18n="rule4_li3">Sanctions must be applied to workforce members who violate HIPAA policies.</li>
+              <li data-i18n="rule4_li4">A contingency plan must exist for emergencies affecting systems containing ePHI.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RULE 5 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§164.310</span>
+          <span class="rule-name" data-i18n="rule5_title">PHYSICAL SAFEGUARDS — FACILITY ACCESS & DEVICE CONTROL</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule5_body">Physical access to systems containing ePHI must be controlled and monitored. Workstations and devices must be protected from unauthorised access.</p>
+            <ul>
+              <li data-i18n="rule5_li1">Facility access controls must limit physical access to authorised individuals only.</li>
+              <li data-i18n="rule5_li2">Workstation use policies must specify proper usage of all systems that access ePHI.</li>
+              <li data-i18n="rule5_li3">Device and media controls must govern the movement and disposal of hardware containing ePHI.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RULE 6 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§164.502(b)</span>
+          <span class="rule-name" data-i18n="rule6_title">MINIMUM NECESSARY STANDARD</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule6_body">When using or disclosing PHI, you must make reasonable efforts to limit information to the minimum necessary to accomplish the intended purpose.</p>
+            <ul>
+              <li data-i18n="rule6_li1">Do not access patient records beyond what your role requires. Curiosity is not authorisation.</li>
+              <li data-i18n="rule6_li2">Routine PHI requests must be limited by policies identifying what is needed for each use.</li>
+              <li data-i18n="rule6_li3">This standard does not apply to disclosures to the patient or those required by law.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- RULE 7 -->
+      <div class="rule-card reveal">
+        <button class="rule-trigger" onclick="toggleRule(this)" aria-expanded="false">
+          <span class="rule-id">§160.306</span>
+          <span class="rule-name" data-i18n="rule7_title">ENFORCEMENT RULE — PENALTIES FOR NON-COMPLIANCE</span>
+          <span class="rule-chevron" aria-hidden="true">▼</span>
+        </button>
+        <div class="rule-body" role="region">
+          <div class="rule-inner">
+            <p data-i18n="rule7_body">HHS enforces HIPAA rules and may investigate complaints and conduct compliance reviews. Civil and criminal penalties apply to violations.</p>
+            <ul>
+              <li data-i18n="rule7_li1">Tier 1 — Unknown violation: $100–$50,000 per violation, max $25,000/year per category.</li>
+              <li data-i18n="rule7_li2">Tier 2 — Reasonable cause: $1,000–$50,000 per violation, max $100,000/year.</li>
+              <li data-i18n="rule7_li3">Tier 3–4 — Wilful neglect: $10,000–$50,000+ per violation, max $1.9M/year.</li>
+              <li data-i18n="rule7_li4">Criminal penalties can include up to 10 years imprisonment for knowing misuse of PHI.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.rules-wrap -->
+
+    <!-- ── OFFICIAL HIPAA LINK ───────────────────── -->
+    <div class="hipaa-link-block reveal">
+      <p class="sec-prompt" data-i18n="hipaa_link_prompt">$ curl --location "https://www.hhs.gov/hipaa"</p>
+
+      <a href="https://www.hhs.gov/hipaa/index.html"
+         target="_blank"
+         rel="noopener noreferrer"
+         class="hipaa-ext-link"
+         data-i18n="hipaa_link_cta"
+         aria-label="Access official HIPAA documentation at HHS.gov (opens in new tab)">
+        <span class="arrow">⎋</span>
+        [ ACCESS OFFICIAL HIPAA DOCUMENTATION → HHS.GOV ]
+      </a>
+
+      <div class="hipaa-sub-links" role="list">
+        <a href="https://www.hhs.gov/hipaa/for-professionals/privacy/index.html"           target="_blank" rel="noopener noreferrer" data-i18n="sub_link1">Privacy Rule →</a>
+        <a href="https://www.hhs.gov/hipaa/for-professionals/security/index.html"           target="_blank" rel="noopener noreferrer" data-i18n="sub_link2">Security Rule →</a>
+        <a href="https://www.hhs.gov/hipaa/for-professionals/breach-notification/index.html" target="_blank" rel="noopener noreferrer" data-i18n="sub_link3">Breach Notification →</a>
+        <a href="https://www.hhs.gov/hipaa/for-professionals/compliance-enforcement/index.html" target="_blank" rel="noopener noreferrer" data-i18n="sub_link4">Enforcement →</a>
+      </div>
+
+      <p class="hipaa-legal-note" data-i18n="hipaa_legal_note">
+        // U.S. Department of Health &amp; Human Services — Health Insurance Portability and Accountability Act of 1996 (Public Law 104-191)
+      </p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════
+       FOOTER
+  ════════════════════════════════════════ -->
+  <footer role="contentinfo">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <div class="footer-brand">[CIPHER_PROTOCOL]</div>
+        <p data-i18n="footer_desc">// HIPAA Compliance Detective Training System.<br>Protecting patient data through gamified education.</p>
+      </div>
+
+      <div class="footer-col">
+        <h4>// NAVIGATION</h4>
+        <ul role="list">
+          <li><a href="#hero">~/home</a></li>
+          <li><a href="#mission">~/mission</a></li>
+          <li><a href="#how-to-play">~/how-to-play</a></li>
+          <li><a href="#rules">~/rules</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>// LEGAL &amp; COMPLIANCE</h4>
+        <ul role="list">
+          <li><a href="https://www.hhs.gov/hipaa/index.html"                                    target="_blank" rel="noopener noreferrer" data-i18n="foot_link1">HIPAA Official Law ↗</a></li>
+          <li><a href="https://www.hhs.gov/hipaa/for-professionals/privacy/index.html"           target="_blank" rel="noopener noreferrer" data-i18n="foot_link2">Privacy Rule ↗</a></li>
+          <li><a href="https://www.hhs.gov/hipaa/for-professionals/security/index.html"           target="_blank" rel="noopener noreferrer" data-i18n="foot_link3">Security Rule ↗</a></li>
+          <li><a href="https://www.hhs.gov/hipaa/for-professionals/breach-notification/index.html" target="_blank" rel="noopener noreferrer" data-i18n="foot_link4">Breach Notification ↗</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col">
+        <h4>// SYSTEM INFO</h4>
+        <ul role="list">
+          <li style="color:var(--dim);font-size:.73rem;">version&nbsp;:&nbsp;2.4.1-stable</li>
+          <li style="color:var(--dim);font-size:.73rem;">build&nbsp;&nbsp;:&nbsp;cipher-protocol</li>
+          <li style="color:var(--dim);font-size:.73rem;">clearance:&nbsp;level-5</li>
+          <li style="color:var(--dim);font-size:.73rem;">cipher&nbsp;&nbsp;:&nbsp;AES-256-GCM</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <p data-i18n="footer_copy">© CIPHER PROTOCOL // HIPAA DETECTIVE TRAINING SYSTEM // ALL DATA PROTECTED</p>
+      <div class="sys-status">
+        <span class="dot-pulse" aria-hidden="true"></span>
+        <span data-i18n="footer_status">SYSTEM ONLINE // COMPLIANCE ACTIVE</span>
+      </div>
+    </div>
+  </footer>
+
+
+  <!-- ════════════════════════════════════════
+       JAVASCRIPT
+  ════════════════════════════════════════ -->
+  <script>
+  /* ──────────────────────────────────────────
+     TRANSLATION STRINGS
+  ────────────────────────────────────────── */
+  const T = {
+    en: {
+      nav_mission: './mission',
+      nav_play:    './play',
+      nav_rules:   './rules',
+      status_alert:'BREACHES_DETECTED: 3 OPEN CASES',
+      video_title: '+--- MISSION_BRIEFING.mp4 :: CLASSIFIED LEVEL 5 ---+',
+      video_ph_label: 'MISSION BRIEFING VIDEO',
+      cta_start:   '[ START MISSION ]',
+      cta_rules:   '[ VIEW RULES --help ]',
+      mission_title:'MISSION BRIEFING',
+      pane1_title: '// OBJECTIVE',
+      pane1_body:  'You are a <span class="hi">HIPAA Compliance Detective</span>. Patient data is under threat. Identify vulnerabilities, close breaches, and ensure every team member follows protocol. Your decisions determine whether patient privacy is protected — or compromised.',
+      pane2_title: '// WHY IT MATTERS',
+      pane2_body:  'HIPAA violations can result in fines up to <span class="hi">$1.9M per violation category per year</span>. Beyond financial penalties, breaches destroy patient trust. Every agent on this team carries responsibility for compliance.',
+      pane3_title: '// YOUR ROLE',
+      pane3_body:  'Each module simulates a <span class="hi">real-world scenario</span>: a suspicious email, an unsecured device, a mishandled file. Solve cases to earn clearance points and unlock the next classified tier.',
+      howto_title: 'HOW TO PLAY',
+      step1_title: 'ACCESS YOUR TERMINAL',
+      step1_body:  'Log in with your employee credentials. Your clearance level determines which cases are available. New agents begin at Level 1 — Basic Protocol.',
+      step2_title: 'INVESTIGATE THE CASE',
+      step2_body:  'Each case presents a scenario involving PHI (Protected Health Information). Review the evidence, analyse the logs, and identify the HIPAA violation and its severity level.',
+      step3_title: 'MAKE YOUR CALL',
+      step3_body:  'Select the correct remediation action. Wrong decisions cost clearance points. Correct decisions earn XP and advance your rank toward Level 5: Chief Compliance Officer.',
+      step4_title: 'CLOSE THE BREACH',
+      step4_body:  'Submit your findings. The system validates your decision against the official HIPAA framework. A full debrief follows every case — win or lose.',
+      step5_title: 'CLIMB THE RANKS',
+      step5_body:  'Top-performing agents appear on the department leaderboard. Monthly winners receive official recognition. Compliance is not optional — and neither is excellence.',
+      rules_title: 'HIPAA COMPLIANCE RULES',
+      rules_sub:   '// All personnel are legally bound by the following regulations. Select each rule to expand.',
+      rule1_title: 'PRIVACY RULE — USES AND DISCLOSURES OF PHI',
+      rule1_body:  'Covered entities may only use or disclose Protected Health Information (PHI) as permitted or required by the Privacy Rule. PHI includes any individually identifiable health information held or transmitted in any form.',
+      rule1_li1:   'PHI must not be disclosed without written patient authorisation except in specific permitted cases.',
+      rule1_li2:   'Minimum Necessary Standard applies: disclose only what is required for the stated purpose.',
+      rule1_li3:   'Patients have the right to access, correct, and restrict use of their own health information.',
+      rule2_title: 'SECURITY RULE — TECHNICAL SAFEGUARDS FOR ePHI',
+      rule2_body:  'All electronic Protected Health Information (ePHI) must be secured with technical safeguards to control access, prevent unauthorised access, and ensure data integrity.',
+      rule2_li1:   'Implement role-based access controls. Only authorised personnel may access ePHI.',
+      rule2_li2:   'All ePHI must be encrypted at rest and in transit using industry-standard protocols.',
+      rule2_li3:   'Automatic logoff must be enabled on all systems that handle ePHI.',
+      rule2_li4:   'Audit logs must record all access to and modifications of ePHI systems.',
+      rule3_title: 'BREACH NOTIFICATION RULE — MANDATORY REPORTING',
+      rule3_body:  'In the event of a breach of unsecured PHI, covered entities must notify affected individuals, the Secretary of HHS, and in some cases, the media.',
+      rule3_li1:   'Affected individuals must be notified without unreasonable delay and within 60 calendar days of discovery.',
+      rule3_li2:   'HHS must be notified. Breaches affecting 500+ individuals require immediate notification.',
+      rule3_li3:   'Notifications must state: the nature of the breach, data types involved, and steps individuals should take.',
+      rule4_title: 'ADMINISTRATIVE SAFEGUARDS — WORKFORCE TRAINING',
+      rule4_body:  'Covered entities must implement administrative policies and procedures to prevent, detect, contain, and correct security violations.',
+      rule4_li1:   'All workforce members must receive HIPAA training upon hire and periodically thereafter.',
+      rule4_li2:   'A designated Privacy Officer and Security Officer must be assigned.',
+      rule4_li3:   'Sanctions must be applied to workforce members who violate HIPAA policies.',
+      rule4_li4:   'A contingency plan must exist for emergencies affecting systems containing ePHI.',
+      rule5_title: 'PHYSICAL SAFEGUARDS — FACILITY ACCESS & DEVICE CONTROL',
+      rule5_body:  'Physical access to systems containing ePHI must be controlled and monitored. Workstations and devices must be protected from unauthorised access.',
+      rule5_li1:   'Facility access controls must limit physical access to authorised individuals only.',
+      rule5_li2:   'Workstation use policies must specify proper usage of all systems that access ePHI.',
+      rule5_li3:   'Device and media controls must govern the movement and disposal of hardware containing ePHI.',
+      rule6_title: 'MINIMUM NECESSARY STANDARD',
+      rule6_body:  'When using or disclosing PHI, you must make reasonable efforts to limit information to the minimum necessary to accomplish the intended purpose.',
+      rule6_li1:   'Do not access patient records beyond what your role requires. Curiosity is not authorisation.',
+      rule6_li2:   'Routine PHI requests must be limited by policies identifying what is needed for each use.',
+      rule6_li3:   'This standard does not apply to disclosures to the patient or those required by law.',
+      rule7_title: 'ENFORCEMENT RULE — PENALTIES FOR NON-COMPLIANCE',
+      rule7_body:  'HHS enforces HIPAA rules and may investigate complaints and conduct compliance reviews. Civil and criminal penalties apply to violations.',
+      rule7_li1:   'Tier 1 — Unknown violation: $100–$50,000 per violation, max $25,000/year per category.',
+      rule7_li2:   'Tier 2 — Reasonable cause: $1,000–$50,000 per violation, max $100,000/year.',
+      rule7_li3:   'Tier 3–4 — Wilful neglect: $10,000–$50,000+ per violation, max $1.9M/year.',
+      rule7_li4:   'Criminal penalties can include up to 10 years imprisonment for knowing misuse of PHI.',
+      hipaa_link_prompt: '$ curl --location "https://www.hhs.gov/hipaa"',
+      hipaa_link_cta:    '[ ACCESS OFFICIAL HIPAA DOCUMENTATION → HHS.GOV ]',
+      sub_link1:         'Privacy Rule →',
+      sub_link2:         'Security Rule →',
+      sub_link3:         'Breach Notification →',
+      sub_link4:         'Enforcement →',
+      hipaa_legal_note:  '// U.S. Department of Health &amp; Human Services — Health Insurance Portability and Accountability Act of 1996 (Public Law 104-191)',
+      footer_desc:       '// HIPAA Compliance Detective Training System.<br>Protecting patient data through gamified education.',
+      foot_link1:        'HIPAA Official Law ↗',
+      foot_link2:        'Privacy Rule ↗',
+      foot_link3:        'Security Rule ↗',
+      foot_link4:        'Breach Notification ↗',
+      footer_copy:       '© CIPHER PROTOCOL // HIPAA DETECTIVE TRAINING SYSTEM // ALL DATA PROTECTED',
+      footer_status:     'SYSTEM ONLINE // COMPLIANCE ACTIVE',
+      hero_tw:           'CIPHER PROTOCOL:\nDETECTIVE TRAINING',
+      hero_sub:          '// A gamified compliance training experience designed to protect patient data and enforce HIPAA standards across all departments.',
+    },
+    nl: {
+      nav_mission: './missie',
+      nav_play:    './spelen',
+      nav_rules:   './regels',
+      status_alert:'INBREUKEN_GEDETECTEERD: 3 OPEN ZAKEN',
+      video_title: '+--- MISSIE_BRIEFING.mp4 :: GEHEIM NIVEAU 5 ---+',
+      video_ph_label: 'MISSIE BRIEFING VIDEO',
+      cta_start:   '[ START MISSIE ]',
+      cta_rules:   '[ BEKIJK REGELS --help ]',
+      mission_title:'MISSIE BRIEFING',
+      pane1_title: '// DOELSTELLING',
+      pane1_body:  'U bent een <span class="hi">HIPAA Compliance Detective</span>. Patiëntgegevens zijn in gevaar. Identificeer kwetsbaarheden, sluit inbreuken en zorg dat elk teamlid het protocol volgt. Uw beslissingen bepalen of de privacy van patiënten wordt beschermd — of geschonden.',
+      pane2_title: '// WAAROM HET BELANGRIJK IS',
+      pane2_body:  'HIPAA-overtredingen kunnen leiden tot boetes van maximaal <span class="hi">$1,9 miljoen per schendingscategorie per jaar</span>. Naast financiële sancties ondermijnen inbreuken het vertrouwen van patiënten. Elke agent draagt verantwoordelijkheid voor naleving.',
+      pane3_title: '// UW ROL',
+      pane3_body:  'Elke module simuleert een <span class="hi">real-world scenario</span>: een verdachte e-mail, een onbeveiligd apparaat, een verkeerd behandeld bestand. Los zaken op om vrijgavepunten te verdienen en het volgende niveau te ontgrendelen.',
+      howto_title: 'HOE TE SPELEN',
+      step1_title: 'TOEGANG TOT UW TERMINAL',
+      step1_body:  'Log in met uw medewerkersinloggegevens. Uw vrijgaveniveau bepaalt welke zaken beschikbaar zijn. Nieuwe agenten beginnen op Niveau 1 — Basisprotocol.',
+      step2_title: 'ONDERZOEK DE ZAAK',
+      step2_body:  'Elke zaak presenteert een scenario met PHI (Beschermde Gezondheidsinformatie). Bekijk het bewijs, analyseer de logbestanden en identificeer de HIPAA-overtreding en de ernst ervan.',
+      step3_title: 'NEEM UW BESLISSING',
+      step3_body:  'Selecteer de juiste herstelactie. Verkeerde beslissingen kosten vrijgavepunten. Correcte beslissingen leveren XP op en bevorderen uw rang naar Niveau 5: Chief Compliance Officer.',
+      step4_title: 'SLUIT DE INBREUK',
+      step4_body:  'Dien uw bevindingen in. Het systeem valideert uw beslissing aan de hand van het officiële HIPAA-kader. Na elke zaak volgt een volledige debriefing — gewonnen of verloren.',
+      step5_title: 'KLIM IN DE RANGLIJST',
+      step5_body:  'Toppresterende agenten verschijnen op het afdelingsklassement. Maandelijkse winnaars ontvangen officiële erkenning. Naleving is niet optioneel — excellentie ook niet.',
+      rules_title: 'HIPAA NALEVINGSREGELS',
+      rules_sub:   '// Al het personeel is wettelijk gebonden aan de volgende regelgeving. Selecteer een regel om uit te vouwen.',
+      rule1_title: 'PRIVACYREGEL — GEBRUIK EN OPENBAARMAKING VAN PHI',
+      rule1_body:  'Gedekte entiteiten mogen Beschermde Gezondheidsinformatie (PHI) alleen gebruiken of openbaar maken zoals toegestaan of vereist door de Privacyregel. PHI omvat alle individueel identificeerbare gezondheidsinformatie in welke vorm dan ook.',
+      rule1_li1:   'PHI mag niet worden vrijgegeven zonder schriftelijke toestemming van de patiënt, behalve in specifiek toegestane gevallen.',
+      rule1_li2:   'De Minimaal Noodzakelijke Norm is van toepassing: maak alleen openbaar wat vereist is voor het opgegeven doel.',
+      rule1_li3:   'Patiënten hebben het recht hun eigen gezondheidsinformatie in te zien, te corrigeren en het gebruik ervan te beperken.',
+      rule2_title: 'BEVEILIGINGSREGEL — TECHNISCHE WAARBORGEN VOOR ePHI',
+      rule2_body:  'Alle elektronische Beschermde Gezondheidsinformatie (ePHI) moet worden beveiligd met technische waarborgen om toegang te controleren, ongeautoriseerde toegang te voorkomen en de integriteit van gegevens te waarborgen.',
+      rule2_li1:   'Implementeer rolgebaseerde toegangscontroles. Alleen bevoegd personeel mag toegang tot ePHI hebben.',
+      rule2_li2:   'Alle ePHI moet in rust en onderweg worden versleuteld met industriestandaard protocollen.',
+      rule2_li3:   'Automatisch uitloggen moet zijn ingeschakeld op alle systemen die ePHI verwerken.',
+      rule2_li4:   'Auditlogboeken moeten alle toegang tot en wijzigingen in ePHI-systemen registreren.',
+      rule3_title: 'MELDINGSPLICHT BIJ INBREUKEN — VERPLICHTE RAPPORTAGE',
+      rule3_body:  'Bij een inbreuk op onbeveiligde PHI moeten gedekte entiteiten betrokken personen, de Minister van HHS en in sommige gevallen de media op de hoogte stellen.',
+      rule3_li1:   'Betrokken personen moeten zonder onnodige vertraging en binnen 60 kalenderdagen na ontdekking worden geïnformeerd.',
+      rule3_li2:   'HHS moet worden geïnformeerd. Inbreuken die 500+ personen treffen vereisen onmiddellijke melding.',
+      rule3_li3:   'De melding moet bevatten: de aard van de inbreuk, betrokken gegevenstypen en te nemen stappen.',
+      rule4_title: 'ADMINISTRATIEVE WAARBORGEN — TRAINING VAN HET PERSONEEL',
+      rule4_body:  'Gedekte entiteiten moeten administratief beleid en procedures implementeren om beveiligingsovertredingen te voorkomen, detecteren, bevatten en corrigeren.',
+      rule4_li1:   'Alle personeelsleden moeten bij indiensttreding en daarna periodiek HIPAA-training ontvangen.',
+      rule4_li2:   'Er moet een aangewezen Privacyfunctionaris en Beveiligingsfunctionaris worden aangesteld.',
+      rule4_li3:   'Sancties moeten worden opgelegd aan personeelsleden die het HIPAA-beleid schenden.',
+      rule4_li4:   'Er moet een noodplan bestaan voor noodsituaties die systemen met ePHI treffen.',
+      rule5_title: 'FYSIEKE WAARBORGEN — FACILITEITOEGANG & APPARAATBEHEER',
+      rule5_body:  'Fysieke toegang tot systemen met ePHI moet worden gecontroleerd en gemonitord. Werkstations en apparaten moeten worden beschermd tegen onbevoegde toegang.',
+      rule5_li1:   'Toegangscontroles moeten de fysieke toegang beperken tot alleen bevoegde personen.',
+      rule5_li2:   'Werkstationgebruiksbeleid moet het correcte gebruik van systemen met toegang tot ePHI specificeren.',
+      rule5_li3:   'Apparaat- en mediacontroles moeten de verplaatsing en verwijdering van hardware met ePHI reguleren.',
+      rule6_title: 'MINIMAAL NOODZAKELIJKE NORM',
+      rule6_body:  'Bij het gebruik of openbaar maken van PHI moet u redelijke inspanningen leveren om PHI te beperken tot het minimaal noodzakelijke om het beoogde doel te bereiken.',
+      rule6_li1:   'Geen toegang tot patiëntendossiers buiten wat uw rol vereist. Nieuwsgierigheid is geen autorisatie.',
+      rule6_li2:   'Routineaanvragen voor PHI moeten worden beperkt door beleid dat aangeeft wat voor elk gebruik nodig is.',
+      rule6_li3:   'Deze norm geldt niet voor openbaarmakingen aan de patiënt of openbaarmakingen die bij wet zijn vereist.',
+      rule7_title: 'HANDHAVINGSREGEL — SANCTIES BIJ NIET-NALEVING',
+      rule7_body:  'HHS handhaaft HIPAA-regels en kan klachten onderzoeken en nalevingsbeoordelingen uitvoeren. Civiele en strafrechtelijke sancties gelden voor overtredingen.',
+      rule7_li1:   'Niveau 1 — Onbekende overtreding: $100–$50.000 per overtreding, max. $25.000/jaar per categorie.',
+      rule7_li2:   'Niveau 2 — Redelijke oorzaak: $1.000–$50.000 per overtreding, max. $100.000/jaar.',
+      rule7_li3:   'Niveau 3–4 — Opzettelijke verwaarlozing: $10.000–$50.000+ per overtreding, max. $1,9 mln/jaar.',
+      rule7_li4:   'Strafrechtelijke sancties kunnen tot 10 jaar gevangenisstraf omvatten voor bewust misbruik van PHI.',
+      hipaa_link_prompt: '$ curl --locatie "https://www.hhs.gov/hipaa"',
+      hipaa_link_cta:    '[ OFFICIËLE HIPAA DOCUMENTATIE RAADPLEGEN → HHS.GOV ]',
+      sub_link1:         'Privacyregel →',
+      sub_link2:         'Beveiligingsregel →',
+      sub_link3:         'Meldingsplicht →',
+      sub_link4:         'Handhaving →',
+      hipaa_legal_note:  '// Amerikaans Ministerie van Volksgezondheid &amp; Human Services — Health Insurance Portability and Accountability Act van 1996 (Public Law 104-191)',
+      footer_desc:       '// HIPAA Compliance Detective Trainingssysteem.<br>Bescherming van patiëntgegevens via educatief spel.',
+      foot_link1:        'HIPAA Officiële Wet ↗',
+      foot_link2:        'Privacyregel ↗',
+      foot_link3:        'Beveiligingsregel ↗',
+      foot_link4:        'Meldingsplicht ↗',
+      footer_copy:       '© CIPHER PROTOCOL // HIPAA DETECTIVE TRAININGSSYSTEEM // ALLE GEGEVENS BESCHERMD',
+      footer_status:     'SYSTEEM ONLINE // NALEVING ACTIEF',
+      hero_tw:           'CIPHER PROTOCOL:\nDETECTIVE TRAINING',
+      hero_sub:          '// Een gamified compliance training-ervaring ontworpen om patiëntgegevens te beschermen en HIPAA-normen op alle afdelingen te handhaven.',
+    }
+  };
+
+  let lang = 'en';
+
+  /* ── Apply all translations ── */
+  function applyTranslations(l) {
+    const t = T[l];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (t[key] !== undefined) el.innerHTML = t[key];
+    });
+    document.getElementById('hero-sub').innerHTML = t.hero_sub;
+    document.documentElement.lang = l === 'nl' ? 'nl' : 'en';
+  }
+
+  /* ── Language toggle ── */
+  function setLang(l) {
+    lang = l;
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      const active = btn.textContent.trim().toLowerCase() === l;
+      btn.classList.toggle('active', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    applyTranslations(l);
+    startTypewriter(T[l].hero_tw);
+  }
+
+  /* ──────────────────────────────────────────
+     TYPEWRITER
+  ────────────────────────────────────────── */
+  let twTimer;
+  function startTypewriter(text) {
+    clearTimeout(twTimer);
+    const el = document.getElementById('typewriter-text');
+    el.textContent = '';
+    let i = 0;
+    function tick() {
+      if (i < text.length) {
+        el.textContent += text[i++];
+        twTimer = setTimeout(tick, Math.random() * 55 + 35);
+      }
+    }
+    tick();
+  }
+
+  /* ──────────────────────────────────────────
+     ACCORDION
+  ────────────────────────────────────────── */
+  function toggleRule(btn) {
+    const card = btn.closest('.rule-card');
+    const body = card.querySelector('.rule-body');
+    const isOpen = card.classList.contains('open');
+
+    /* close all */
+    document.querySelectorAll('.rule-card.open').forEach(c => {
+      c.classList.remove('open');
+      c.querySelector('.rule-trigger').setAttribute('aria-expanded', 'false');
+    });
+
+    if (!isOpen) {
+      card.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      /* smooth scroll card into view if needed */
+      setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
+  }
+
+  /* ──────────────────────────────────────────
+     SCROLL REVEAL
+  ────────────────────────────────────────── */
+  const revealObs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
+
+  /* ──────────────────────────────────────────
+     VIDEO PLACEHOLDER
+  ────────────────────────────────────────── */
+  window.addEventListener('load', () => {
+    const src = document.querySelector('#hero-video source');
+    const ph  = document.getElementById('vid-placeholder');
+    if (src && !src.getAttribute('src').includes('YOUR_VIDEO_URL_HERE') && ph) {
+      ph.style.display = 'none';
+    }
+  });
+
+  /* ── INIT ── */
+  startTypewriter(T.en.hero_tw);
+  </script>
+</body>
+</html>
